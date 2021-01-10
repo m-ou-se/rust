@@ -3,6 +3,11 @@ error[E0277]: `impl Sized` doesn't implement `Debug`
    |
 LL |     println!("{:?}", t);
    |                      ^ `impl Sized` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -16,6 +21,11 @@ error[E0277]: `T` doesn't implement `Debug`
    |
 LL |     println!("{:?}", t);
    |                      ^ `T` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -29,6 +39,11 @@ error[E0277]: `T` doesn't implement `Debug`
    |
 LL |     println!("{:?}", t);
    |                      ^ `T` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -42,6 +57,11 @@ error[E0277]: `Y` doesn't implement `Debug`
    |
 LL |     println!("{:?} {:?}", x, y);
    |                              ^ `Y` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -55,6 +75,11 @@ error[E0277]: `X` doesn't implement `Debug`
    |
 LL |     println!("{:?}", x);
    |                      ^ `X` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -68,6 +93,11 @@ error[E0277]: `X` doesn't implement `Debug`
    |
 LL |     println!("{:?}", x);
    |                      ^ `X` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = note: required by `std::fmt::Debug::fmt`
    = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)

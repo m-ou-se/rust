@@ -413,9 +413,9 @@ pub trait Emitter {
                             },
                         ),
                     ));
-                }
-                if !always_backtrace {
-                    break;
+                    if !always_backtrace {
+                        break;
+                    }
                 }
             }
         }

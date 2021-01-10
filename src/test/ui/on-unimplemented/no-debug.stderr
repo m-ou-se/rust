@@ -3,6 +3,11 @@ error[E0277]: `Foo` doesn't implement `Debug`
    |
 LL |     println!("{:?} {:?}", Foo, Bar);
    |                           ^^^ `Foo` cannot be formatted using `{:?}`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = help: the trait `Debug` is not implemented for `Foo`
    = note: add `#[derive(Debug)]` or manually implement `Debug`
@@ -14,6 +19,11 @@ error[E0277]: `Bar` doesn't implement `Debug`
    |
 LL |     println!("{:?} {:?}", Foo, Bar);
    |                                ^^^ `Bar` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = help: the trait `Debug` is not implemented for `Bar`
    = note: required by `std::fmt::Debug::fmt`
@@ -24,6 +34,11 @@ error[E0277]: `Foo` doesn't implement `std::fmt::Display`
    |
 LL |     println!("{} {}", Foo, Bar);
    |                       ^^^ `Foo` cannot be formatted with the default formatter
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = help: the trait `std::fmt::Display` is not implemented for `Foo`
    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
@@ -35,6 +50,11 @@ error[E0277]: `Bar` doesn't implement `std::fmt::Display`
    |
 LL |     println!("{} {}", Foo, Bar);
    |                            ^^^ `Bar` cannot be formatted with the default formatter
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = help: the trait `std::fmt::Display` is not implemented for `Bar`
    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead

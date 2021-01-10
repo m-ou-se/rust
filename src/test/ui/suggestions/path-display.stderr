@@ -3,6 +3,11 @@ error[E0277]: `Path` doesn't implement `std::fmt::Display`
    |
 LL |     println!("{}", path);
    |                    ^^^^ `Path` cannot be formatted with the default formatter
+   | 
+  ::: $SRC_DIR/std/src/macros.rs:LL:COL
+   |
+LL |         $crate::io::_print($crate::format_args_nl!($($arg)*));
+   |                            --------------------------------- in this macro invocation
    |
    = help: the trait `std::fmt::Display` is not implemented for `Path`
    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
