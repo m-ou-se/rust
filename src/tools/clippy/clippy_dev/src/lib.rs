@@ -331,8 +331,12 @@ where
 /// Returns the path to the Clippy project directory
 #[must_use]
 pub fn clippy_project_root() -> PathBuf {
-    let current_dir = std::env::current_dir().unwrap();
-    for path in current_dir.ancestors() {
+    let start_dir = if let Some(path) = std::env::var_os("CARGO_MANIFEST_DIR") {
+        PathBuf::from(path)
+    } else {
+        std::env::current_dir().unwrap()
+    };
+    for path in start_dir.ancestors() {
         let result = std::fs::read_to_string(path.join("Cargo.toml"));
         if let Err(err) = &result {
             if err.kind() == std::io::ErrorKind::NotFound {
