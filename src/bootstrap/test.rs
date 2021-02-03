@@ -530,16 +530,34 @@ impl Step for Clippy {
         let clippy = builder
             .ensure(tool::Clippy { compiler, target: self.host, extra_features: Vec::new() })
             .expect("in-tree tool");
-        let mut cargo = tool::prepare_tool_cargo(
-            builder,
-            compiler,
-            Mode::ToolRustc,
-            host,
-            "test",
-            "src/tools/clippy",
-            SourceType::InTree,
-            &[],
-        );
+
+        let mut cargo = if builder.config.cmd.bless() {
+            let mut cargo = tool::prepare_tool_cargo(
+                builder,
+                compiler,
+                Mode::ToolRustc,
+                host,
+                "run",
+                "src/tools/clippy/clippy_dev",
+                SourceType::InTree,
+                &[],
+            );
+            cargo.arg("--").arg("bless");
+            cargo
+        } else {
+            let mut cargo = tool::prepare_tool_cargo(
+                builder,
+                compiler,
+                Mode::ToolRustc,
+                host,
+                "test",
+                "src/tools/clippy",
+                SourceType::InTree,
+                &[],
+            );
+            cargo.arg("--").args(builder.config.cmd.test_args());
+            cargo
+        };
 
         // clippy tests need to know about the stage sysroot
         cargo.env("SYSROOT", builder.sysroot(compiler));
@@ -554,8 +572,6 @@ impl Step for Clippy {
         cargo.env("TARGET_LIBS", target_libs);
         // clippy tests need to find the driver
         cargo.env("CLIPPY_DRIVER_PATH", clippy);
-
-        cargo.arg("--").args(builder.config.cmd.test_args());
 
         cargo.add_rustc_lib_path(builder, compiler);
 
