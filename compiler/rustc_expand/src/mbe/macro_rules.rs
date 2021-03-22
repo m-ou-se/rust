@@ -1080,12 +1080,25 @@ fn is_in_follow(tok: &mbe::TokenTree, kind: NonterminalKind) -> IsInFollow {
                     _ => IsInFollow::No(TOKENS),
                 }
             }
-            NonterminalKind::Pat2018 { .. } | NonterminalKind::Pat2021 { .. } => {
+            NonterminalKind::Pat2018 { .. } => {
                 const TOKENS: &[&str] = &["`=>`", "`,`", "`=`", "`|`", "`if`", "`in`"];
                 match tok {
                     TokenTree::Token(token) => match token.kind {
-                        FatArrow | Comma | Eq | BinOp(token::Or) => IsInFollow::Yes,
-                        Ident(name, false) if name == kw::If || name == kw::In => IsInFollow::Yes,
+                        FatArrow
+                        | Comma
+                        | Eq
+                        | BinOp(token::Or)
+                        | Ident(kw::If | kw::In, false) => IsInFollow::Yes,
+                        _ => IsInFollow::No(TOKENS),
+                    },
+                    _ => IsInFollow::No(TOKENS),
+                }
+            }
+            NonterminalKind::Pat2021 { .. } => {
+                const TOKENS: &[&str] = &["`=>`", "`,`", "`=`", "`if`", "`in`"];
+                match tok {
+                    TokenTree::Token(token) => match token.kind {
+                        FatArrow | Comma | Eq | Ident(kw::If | kw::In, false) => IsInFollow::Yes,
                         _ => IsInFollow::No(TOKENS),
                     },
                     _ => IsInFollow::No(TOKENS),

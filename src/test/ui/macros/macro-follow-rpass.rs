@@ -7,7 +7,7 @@ macro_rules! follow_pat {
     ($p:pat =>) => {};
     ($p:pat ,) => {};
     ($p:pat =) => {};
-    ($p:pat |) => {};
+    ($p:pat |) => {}; // not in edition 2021
     ($p:pat if) => {};
     ($p:pat in) => {};
 }

@@ -1,0 +1,146 @@
+error: `$p:pat` is followed by `(`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:7:13
+   |
+LL |     ($p:pat ()) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `[`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:8:13
+   |
+LL |     ($p:pat []) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `{`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:9:13
+   |
+LL |     ($p:pat {}) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `:`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:10:13
+   |
+LL |     ($p:pat :) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `>`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:11:13
+   |
+LL |     ($p:pat >) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `+`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:12:13
+   |
+LL |     ($p:pat +) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `|`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:13:13
+   |
+LL |     ($p:pat |) => {};
+   |             ^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `ident`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:14:13
+   |
+LL |     ($p:pat ident) => {};
+   |             ^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$q:pat`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:15:13
+   |
+LL |     ($p:pat $q:pat) => {};
+   |             ^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$e:expr`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:16:13
+   |
+LL |     ($p:pat $e:expr) => {};
+   |             ^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$t:ty`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:17:13
+   |
+LL |     ($p:pat $t:ty) => {};
+   |             ^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$s:stmt`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:18:13
+   |
+LL |     ($p:pat $s:stmt) => {};
+   |             ^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$q:path`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:19:13
+   |
+LL |     ($p:pat $q:path) => {};
+   |             ^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$b:block`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:20:13
+   |
+LL |     ($p:pat $b:block) => {};
+   |             ^^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$i:ident`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:21:13
+   |
+LL |     ($p:pat $i:ident) => {};
+   |             ^^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$t:tt`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:22:13
+   |
+LL |     ($p:pat $t:tt) => {};
+   |             ^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$i:item`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:23:13
+   |
+LL |     ($p:pat $i:item) => {};
+   |             ^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: `$p:pat` is followed by `$m:meta`, which is not allowed for `pat` fragments
+  --> $DIR/macro-follow-2021.rs:24:13
+   |
+LL |     ($p:pat $m:meta) => {};
+   |             ^^^^^^^ not allowed after `pat` fragments
+   |
+   = note: allowed there are: `=>`, `,`, `=`, `if` or `in`
+
+error: aborting due to 18 previous errors
+
