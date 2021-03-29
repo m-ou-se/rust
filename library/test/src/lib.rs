@@ -24,6 +24,7 @@
 #![feature(rustc_private)]
 #![feature(nll)]
 #![feature(available_concurrency)]
+#![feature(edition_macro_pats)]
 #![feature(internal_output_capture)]
 #![feature(option_unwrap_none)]
 #![feature(panic_unwind)]

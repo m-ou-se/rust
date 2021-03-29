@@ -2956,6 +2956,7 @@ declare_lint_pass! {
         DISJOINT_CAPTURE_DROP_REORDER,
         LEGACY_DERIVE_HELPERS,
         PROC_MACRO_BACK_COMPAT,
+        NON_OR_PATTERNS,
     ]
 }
 
@@ -3131,5 +3132,33 @@ declare_lint! {
         future_breakage: Some(FutureBreakage {
             date: None
         })
+    };
+}
+
+declare_lint! {
+    /// The `non_or_patterns` lint suggests using `:pat2018` instead of
+    /// `:pat` in `macro_rules!` when followed by `|`.
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// macro_rules! a {
+    ///     (|$p:pat| $e:expr) => ();
+    /// }
+    /// ```
+    ///
+    /// {{produces}}
+    ///
+    /// ### Explanation
+    ///
+    /// In Rust 2015 and 2018, the `:pat` matcher did not accept patterns including `|`.
+    /// In Rust 2021, `:pat` accepts patterns including `|`, which means they can no longer
+    /// be used right after a pattern.
+    pub NON_OR_PATTERNS,
+    Allow,
+    "suggest using `:pat2018` instead of `:pat`",
+    @future_incompatible = FutureIncompatibleInfo {
+        reference: "issue #54883 <https://github.com/rust-lang/rust/issues/54883>",
+        edition: Some(Edition::Edition2021),
     };
 }

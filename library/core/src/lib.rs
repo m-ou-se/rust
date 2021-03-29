@@ -112,6 +112,7 @@
 #![feature(doc_spotlight)]
 #![feature(duration_consts_2)]
 #![feature(duration_saturating_ops)]
+#![feature(edition_macro_pats)]
 #![feature(extended_key_value_attributes)]
 #![feature(extern_types)]
 #![feature(fundamental)]

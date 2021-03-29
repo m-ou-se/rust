@@ -707,6 +707,15 @@ pub trait LintContext: Sized {
                 BuiltinLintDiagnostics::ProcMacroBackCompat(note) => {
                     db.note(&note);
                 }
+                BuiltinLintDiagnostics::NonOrPatterns(span) => {
+                    db.span_suggestion_with_style(
+                        span,
+                        "use `:pat2018` instead, which does not match `|`",
+                        "pat2018".into(),
+                        Applicability::MachineApplicable,
+                        SuggestionStyle::HideCodeInline,
+                    );
+                }
             }
             // Rewrap `db`, and pass control to the user.
             decorate(LintDiagnosticBuilder::new(db));

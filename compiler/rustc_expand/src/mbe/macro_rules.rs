@@ -18,14 +18,15 @@ use rustc_data_structures::fx::FxHashMap;
 use rustc_data_structures::sync::Lrc;
 use rustc_errors::{Applicability, DiagnosticBuilder};
 use rustc_feature::Features;
-use rustc_lint_defs::builtin::SEMICOLON_IN_EXPRESSIONS_FROM_MACROS;
+use rustc_lint_defs::builtin::{SEMICOLON_IN_EXPRESSIONS_FROM_MACROS, NON_OR_PATTERNS};
+use rustc_lint_defs::BuiltinLintDiagnostics::NonOrPatterns;
 use rustc_parse::parser::Parser;
 use rustc_session::parse::ParseSess;
 use rustc_session::Session;
 use rustc_span::edition::Edition;
 use rustc_span::hygiene::Transparency;
 use rustc_span::symbol::{kw, sym, Ident, MacroRulesNormalizedIdent};
-use rustc_span::Span;
+use rustc_span::{Span, BytePos};
 
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
@@ -469,7 +470,7 @@ pub fn compile_declarative_macro(
                         )
                         .pop()
                         .unwrap();
-                        valid &= check_lhs_nt_follows(&sess.parse_sess, features, &def.attrs, &tt);
+                        valid &= check_lhs_nt_follows(&sess.parse_sess, features, &def, &tt);
                         return tt;
                     }
                 }
@@ -537,13 +538,13 @@ pub fn compile_declarative_macro(
 fn check_lhs_nt_follows(
     sess: &ParseSess,
     features: &Features,
-    attrs: &[ast::Attribute],
+    def: &ast::Item,
     lhs: &mbe::TokenTree,
 ) -> bool {
     // lhs is going to be like TokenTree::Delimited(...), where the
     // entire lhs is those tts. Or, it can be a "bare sequence", not wrapped in parens.
     if let mbe::TokenTree::Delimited(_, ref tts) = *lhs {
-        check_matcher(sess, features, attrs, &tts.tts)
+        check_matcher(sess, features, def, &tts.tts)
     } else {
         let msg = "invalid macro matcher; matchers must be contained in balanced delimiters";
         sess.span_diagnostic.span_err(lhs.span(), msg);
@@ -601,13 +602,13 @@ fn check_rhs(sess: &ParseSess, rhs: &mbe::TokenTree) -> bool {
 fn check_matcher(
     sess: &ParseSess,
     features: &Features,
-    attrs: &[ast::Attribute],
+    def: &ast::Item,
     matcher: &[mbe::TokenTree],
 ) -> bool {
     let first_sets = FirstSets::new(matcher);
     let empty_suffix = TokenSet::empty();
     let err = sess.span_diagnostic.err_count();
-    check_matcher_core(sess, features, attrs, &first_sets, matcher, &empty_suffix);
+    check_matcher_core(sess, features, def, &first_sets, matcher, &empty_suffix);
     err == sess.span_diagnostic.err_count()
 }
 
@@ -854,7 +855,7 @@ impl TokenSet {
 fn check_matcher_core(
     sess: &ParseSess,
     features: &Features,
-    attrs: &[ast::Attribute],
+    def: &ast::Item,
     first_sets: &FirstSets,
     matcher: &[mbe::TokenTree],
     follow: &TokenSet,
@@ -900,7 +901,7 @@ fn check_matcher_core(
             }
             TokenTree::Delimited(span, ref d) => {
                 let my_suffix = TokenSet::singleton(d.close_tt(span));
-                check_matcher_core(sess, features, attrs, first_sets, &d.tts, &my_suffix);
+                check_matcher_core(sess, features, def, first_sets, &d.tts, &my_suffix);
                 // don't track non NT tokens
                 last.replace_with_irrelevant();
 
@@ -933,7 +934,7 @@ fn check_matcher_core(
                 // `my_suffix` is some TokenSet that we can use
                 // for checking the interior of `seq_rep`.
                 let next =
-                    check_matcher_core(sess, features, attrs, first_sets, &seq_rep.tts, my_suffix);
+                    check_matcher_core(sess, features, def, first_sets, &seq_rep.tts, my_suffix);
                 if next.maybe_empty {
                     last.add_all(&next);
                 } else {
@@ -951,18 +952,33 @@ fn check_matcher_core(
         // Now `last` holds the complete set of NT tokens that could
         // end the sequence before SUFFIX. Check that every one works with `suffix`.
         for token in &last.tokens {
-            if let TokenTree::MetaVarDecl(_, name, Some(kind)) = *token {
+            if let TokenTree::MetaVarDecl(span, name, Some(kind)) = *token {
                 for next_token in &suffix_first.tokens {
+                    let may_be = if last.tokens.len() == 1 && suffix_first.tokens.len() == 1 {
+                        "is"
+                    } else {
+                        "may be"
+                    };
                     match is_in_follow(next_token, kind) {
                         IsInFollow::Yes => {}
+                        IsInFollow::PatLint => {
+                            let pat_span = span.with_lo(
+                                span.hi() - BytePos(3)
+                            );
+                            sess.buffer_lint_with_diagnostic(
+                                NON_OR_PATTERNS,
+                                span,
+                                def.id,
+                                &format!(
+                                    "`${name}:pat` {may_be} followed by `|`, which \
+                                     is not allowed for `pat` fragments",
+                                    name = name,
+                                    may_be = may_be
+                                ),
+                                NonOrPatterns(pat_span),
+                            );
+                        }
                         IsInFollow::No(possible) => {
-                            let may_be = if last.tokens.len() == 1 && suffix_first.tokens.len() == 1
-                            {
-                                "is"
-                            } else {
-                                "may be"
-                            };
-
                             let sp = next_token.span();
                             let mut err = sess.span_diagnostic.struct_span_err(
                                 sp,
@@ -1041,6 +1057,8 @@ fn frag_can_be_followed_by_any(kind: NonterminalKind) -> bool {
 enum IsInFollow {
     Yes,
     No(&'static [&'static str]),
+    /// Yes, but not in the new edition.
+    PatLint,
 }
 
 /// Returns `true` if `frag` can legally be followed by the token `tok`. For
@@ -1080,15 +1098,20 @@ fn is_in_follow(tok: &mbe::TokenTree, kind: NonterminalKind) -> IsInFollow {
                     _ => IsInFollow::No(TOKENS),
                 }
             }
-            NonterminalKind::Pat2018 { .. } => {
+            NonterminalKind::Pat2018 { inferred } => {
                 const TOKENS: &[&str] = &["`=>`", "`,`", "`=`", "`|`", "`if`", "`in`"];
                 match tok {
                     TokenTree::Token(token) => match token.kind {
-                        FatArrow
-                        | Comma
-                        | Eq
-                        | BinOp(token::Or)
-                        | Ident(kw::If | kw::In, false) => IsInFollow::Yes,
+                        FatArrow | Comma | Eq | Ident(kw::If | kw::In, false) => IsInFollow::Yes,
+                        BinOp(token::Or) => {
+                            if inferred {
+                                // Lint for `:pat |`, since that is no longer
+                                // accepted in Rust 2021.
+                                IsInFollow::PatLint
+                            } else {
+                                IsInFollow::Yes
+                            }
+                        }
                         _ => IsInFollow::No(TOKENS),
                     },
                     _ => IsInFollow::No(TOKENS),
