@@ -3,6 +3,7 @@ use crate::iter::adapters::{zip::try_get_unchecked, InPlaceIterable, SourceIter}
 use crate::iter::{
     DoubleEndedIterator, ExactSizeIterator, FusedIterator, TrustedLen, TrustedRandomAccess,
 };
+use crate::marker::PhantomData;
 use crate::ops::Try;
 
 /// An iterator that yields `None` forever after the underlying iterator
@@ -16,10 +17,11 @@ use crate::ops::Try;
 pub struct Fuse<I> {
     // NOTE: for `I: FusedIterator`, this is always assumed `Some`!
     iter: Option<I>,
+    _phantom: PhantomData<*mut I>,
 }
 impl<I> Fuse<I> {
     pub(in crate::iter) fn new(iter: I) -> Fuse<I> {
-        Fuse { iter: Some(iter) }
+        Fuse { iter: Some(iter), _phantom: PhantomData }
     }
 }
 
@@ -47,9 +49,9 @@ macro_rules! fuse {
 macro_rules! unchecked {
     ($self:ident) => {
         match $self {
-            Fuse { iter: Some(iter) } => iter,
+            Fuse { iter: Some(iter), .. } => iter,
             // SAFETY: the specialized iterator never sets `None`
-            Fuse { iter: None } => unsafe { intrinsics::unreachable() },
+            Fuse { iter: None, .. } => unsafe { intrinsics::unreachable() },
         }
     };
 }
