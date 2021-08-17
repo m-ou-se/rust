@@ -396,10 +396,6 @@ use crate::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn, Receiver};
 /// *See the [`pin` module] documentation for an explanation of pinning.*
 ///
 /// [`pin` module]: self
-//
-// Note: the `Clone` derive below causes unsoundness as it's possible to implement
-// `Clone` for mutable references.
-// See <https://internals.rust-lang.org/t/unsoundness-in-pin/11311> for more details.
 #[stable(feature = "pin", since = "1.33.0")]
 #[lang = "pin"]
 #[fundamental]
