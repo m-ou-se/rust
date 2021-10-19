@@ -153,6 +153,11 @@
 #[cfg(all(test, not(target_os = "emscripten")))]
 mod tests;
 
+mod spawnhook;
+
+#[unstable(feature = "thread_spawn_hook", issue = "none")]
+pub use spawnhook::add_spawn_hook;
+
 use crate::any::Any;
 use crate::cell::UnsafeCell;
 use crate::ffi::{CStr, CString};
@@ -468,6 +473,8 @@ impl Builder {
         let output_capture = crate::io::set_output_capture(None);
         crate::io::set_output_capture(output_capture.clone());
 
+        let hooks = spawnhook::run_spawn_hooks();
+
         let main = move || {
             if let Some(name) = their_thread.cname() {
                 imp::Thread::set_name(name);
@@ -479,6 +486,11 @@ impl Builder {
             // This means the current thread's stack and the new thread's stack
             // are properly set and protected from each other.
             thread_info::set(unsafe { imp::guard::current() }, their_thread);
+
+            for hook in hooks {
+                hook();
+            }
+
             let try_result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 crate::sys_common::backtrace::__rust_begin_short_backtrace(f)
             }));
