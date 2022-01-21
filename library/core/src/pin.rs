@@ -1146,5 +1146,5 @@ pub macro pin($value:expr $(,)?) {
     //
     // Finally, we don't hit problems _w.r.t._ the privacy of the `pointer` field, or the
     // unqualified `Pin` name, thanks to `decl_macro`s being _fully_ hygienic (`def_site` hygiene).
-    Pin { pointer: &mut { $value } }
+    Pin::<&mut _> { pointer: &mut { $value } }
 }
