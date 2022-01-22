@@ -911,7 +911,7 @@ impl<P, U> CoerceUnsized<Pin<U>> for Pin<P> where P: CoerceUnsized<U> {}
 impl<P, U> DispatchFromDyn<Pin<U>> for Pin<P> where P: DispatchFromDyn<U> {}
 
 /// Constructs a <code>[Pin]<[&mut] T></code>, by pinning[^1] a `value: T` _locally_[^2]
-/// (≠ [in the heap][`Box::pin`]).
+/// (≠ [on the heap][`Box::pin`]).
 ///
 /// [^1]: If the (type `T` of the) given value does not implement [`Unpin`], then this
 /// effectively pins the `value` in memory, where it will be unable to be moved.
