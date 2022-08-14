@@ -31,7 +31,7 @@ pub use iter::IntoIter;
 /// # Example
 ///
 /// ```rust
-/// let array = core::array::from_fn(|i| i);
+/// let array: [_; 5] = core::array::from_fn(|i| i);
 /// assert_eq!(array, [0, 1, 2, 3, 4]);
 /// ```
 #[inline]
