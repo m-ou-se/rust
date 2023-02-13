@@ -22,6 +22,7 @@
 #![feature(process_exitcode_internals)]
 #![feature(panic_can_unwind)]
 #![feature(test)]
+#![feature(thread_spawn_hook)]
 
 // Public reexports
 pub use self::bench::{black_box, Bencher};
@@ -136,6 +137,16 @@ pub fn test_main(args: &[String], tests: Vec<TestDescAndFn>, options: Option<Opt
                 }
             });
             panic::set_hook(hook);
+            // Use a thread spawning hook to make new threads inherit output capturing.
+            std::thread::add_spawn_hook(|_| {
+                // Get and clone the output capture of the current thread.
+                let output_capture = io::set_output_capture(None);
+                io::set_output_capture(output_capture.clone());
+                // Set the output capture of the new thread.
+                Ok(|| {
+                    io::set_output_capture(output_capture);
+                })
+            });
         }
         match console::run_tests_console(&opts, tests) {
             Ok(true) => {}
