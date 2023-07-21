@@ -2752,6 +2752,10 @@ impl<'test> TestCx<'test> {
             self.fatal_proc_rec("compilation failed!", &proc_res);
         }
 
+        if let Some(PassMode::Build) = self.pass_mode() {
+            return;
+        }
+
         let output_path = self.output_base_name().with_extension("ll");
         let proc_res = self.verify_with_filecheck(&output_path);
         if !proc_res.status.success() {
@@ -4145,8 +4149,8 @@ impl<'test> TestCx<'test> {
                   # Match paths that don't include spaces.
                   (?:\\[\pL\pN\.\-_']+)+\.\pL+
                 |
-                  # If the path starts with a well-known root, then allow spaces.
-                  \$(?:DIR|SRC_DIR|TEST_BUILD_DIR|BUILD_DIR|LIB_DIR)(?:\\[\pL\pN\.\-_' ]+)+
+                  # If the path starts with a well-known root, then allow spaces and no file extension.
+                  \$(?:DIR|SRC_DIR|TEST_BUILD_DIR|BUILD_DIR|LIB_DIR)(?:\\[\pL\pN\.\-_'\ ]+)+
                 )"#,
             )
             .unwrap()

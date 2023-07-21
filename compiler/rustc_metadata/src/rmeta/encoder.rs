@@ -37,7 +37,7 @@ use rustc_session::config::{CrateType, OptLevel};
 use rustc_session::cstore::{ForeignModule, LinkagePreference, NativeLib};
 use rustc_span::hygiene::{ExpnIndex, HygieneEncodeContext, MacroKind};
 use rustc_span::symbol::{sym, Symbol};
-use rustc_span::{self, ExternalSource, FileName, SourceFile, Span, SyntaxContext};
+use rustc_span::{self, ExternalSource, FileName, SourceFile, Span, SpanData, SyntaxContext};
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::hash::Hash;
@@ -53,6 +53,7 @@ pub(super) struct EncodeContext<'a, 'tcx> {
     tables: TableBuilders,
 
     lazy_state: LazyState,
+    span_shorthands: FxHashMap<Span, usize>,
     type_shorthands: FxHashMap<Ty<'tcx>, usize>,
     predicate_shorthands: FxHashMap<ty::PredicateKind<'tcx>, usize>,
 
@@ -177,8 +178,20 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for ExpnId {
 
 impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for Span {
     fn encode(&self, s: &mut EncodeContext<'a, 'tcx>) {
-        let span = self.data();
+        match s.span_shorthands.entry(*self) {
+            Entry::Occupied(o) => SpanEncodingMode::Shorthand(*o.get()).encode(s),
+            Entry::Vacant(v) => {
+                let position = s.opaque.position();
+                v.insert(position);
+                SpanEncodingMode::Direct.encode(s);
+                self.data().encode(s);
+            }
+        }
+    }
+}
 
+impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData {
+    fn encode(&self, s: &mut EncodeContext<'a, 'tcx>) {
         // Don't serialize any `SyntaxContext`s from a proc-macro crate,
         // since we don't load proc-macro dependencies during serialization.
         // This means that any hygiene information from macros used *within*
@@ -213,7 +226,7 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for Span {
         if s.is_proc_macro {
             SyntaxContext::root().encode(s);
         } else {
-            span.ctxt.encode(s);
+            self.ctxt.encode(s);
         }
 
         if self.is_dummy() {
@@ -221,18 +234,18 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for Span {
         }
 
         // The Span infrastructure should make sure that this invariant holds:
-        debug_assert!(span.lo <= span.hi);
+        debug_assert!(self.lo <= self.hi);
 
-        if !s.source_file_cache.0.contains(span.lo) {
+        if !s.source_file_cache.0.contains(self.lo) {
             let source_map = s.tcx.sess.source_map();
-            let source_file_index = source_map.lookup_source_file_idx(span.lo);
+            let source_file_index = source_map.lookup_source_file_idx(self.lo);
             s.source_file_cache =
                 (source_map.files()[source_file_index].clone(), source_file_index);
         }
         let (ref source_file, source_file_index) = s.source_file_cache;
-        debug_assert!(source_file.contains(span.lo));
+        debug_assert!(source_file.contains(self.lo));
 
-        if !source_file.contains(span.hi) {
+        if !source_file.contains(self.hi) {
             // Unfortunately, macro expansion still sometimes generates Spans
             // that malformed in this way.
             return TAG_PARTIAL_SPAN.encode(s);
@@ -286,11 +299,11 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for Span {
 
         // Encode the start position relative to the file start, so we profit more from the
         // variable-length integer encoding.
-        let lo = span.lo - source_file.start_pos;
+        let lo = self.lo - source_file.start_pos;
 
         // Encode length which is usually less than span.hi and profits more
         // from the variable-length integer encoding that we use.
-        let len = span.hi - span.lo;
+        let len = self.hi - self.lo;
 
         tag.encode(s);
         lo.encode(s);
@@ -608,7 +621,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 trace!("encoding {} further alloc ids", new_n - n);
                 for idx in n..new_n {
                     let id = self.interpret_allocs[idx];
-                    let pos = self.position() as u32;
+                    let pos = self.position() as u64;
                     interpret_alloc_index.push(pos);
                     interpret::specialized_encode_alloc_id(self, tcx, id);
                 }
@@ -1136,7 +1149,7 @@ fn should_encode_type(tcx: TyCtxt<'_>, def_id: LocalDefId, def_kind: DefKind) ->
                 // the default projection predicates in default trait methods
                 // with RPITITs.
                 ty::AssocItemContainer::TraitContainer => {
-                    assoc_item.defaultness(tcx).has_value() || assoc_item.opt_rpitit_info.is_some()
+                    assoc_item.defaultness(tcx).has_value() || assoc_item.is_impl_trait_in_trait()
                 }
             }
         }
@@ -1671,7 +1684,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
     fn encode_info_for_macro(&mut self, def_id: LocalDefId) {
         let tcx = self.tcx;
 
-        let hir::ItemKind::Macro(ref macro_def, _) = tcx.hir().expect_item(def_id).kind else { bug!() };
+        let hir::ItemKind::Macro(ref macro_def, _) = tcx.hir().expect_item(def_id).kind else {
+            bug!()
+        };
         self.tables.is_macro_rules.set(def_id.local_def_index, macro_def.macro_rules);
         record!(self.tables.macro_definition[def_id.to_def_id()] <- &*macro_def.body);
     }
@@ -1911,7 +1926,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             FxHashMap::default();
 
         for id in tcx.hir().items() {
-            let DefKind::Impl { of_trait } = tcx.def_kind(id.owner_id) else { continue; };
+            let DefKind::Impl { of_trait } = tcx.def_kind(id.owner_id) else {
+                continue;
+            };
             let def_id = id.owner_id.to_def_id();
 
             self.tables.defaultness.set_some(def_id.index, tcx.defaultness(def_id));
@@ -1920,7 +1937,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if of_trait && let Some(trait_ref) = tcx.impl_trait_ref(def_id) {
                 record!(self.tables.impl_trait_ref[def_id] <- trait_ref);
 
-                let trait_ref = trait_ref.subst_identity();
+                let trait_ref = trait_ref.instantiate_identity();
                 let simplified_self_ty =
                     fast_reject::simplify_type(self.tcx, trait_ref.self_ty(), TreatParams::AsCandidateKey);
                 fx_hash_map
@@ -2178,6 +2195,7 @@ fn encode_metadata_impl(tcx: TyCtxt<'_>, path: &Path) {
         feat: tcx.features(),
         tables: Default::default(),
         lazy_state: LazyState::NoNode,
+        span_shorthands: Default::default(),
         type_shorthands: Default::default(),
         predicate_shorthands: Default::default(),
         source_file_cache,

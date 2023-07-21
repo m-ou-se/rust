@@ -820,6 +820,7 @@ fn assoc_method(
     let header = meth.fn_header(tcx).expect("Trying to get header from a non-function item");
     let name = meth.name.as_ref().unwrap();
     let vis = visibility_print_with_space(meth.visibility(tcx), meth.item_id, cx).to_string();
+    let defaultness = print_default_space(meth.is_default());
     // FIXME: Once https://github.com/rust-lang/rust/issues/67792 is implemented, we can remove
     // this condition.
     let constness = match render_mode {
@@ -830,7 +831,6 @@ fn assoc_method(
     };
     let asyncness = header.asyncness.print_with_space();
     let unsafety = header.unsafety.print_with_space();
-    let defaultness = print_default_space(meth.is_default());
     let abi = print_abi_with_space(header.abi).to_string();
     let href = assoc_href_attr(meth, link, cx);
 
@@ -838,10 +838,10 @@ fn assoc_method(
     let generics_len = format!("{:#}", g.print(cx)).len();
     let mut header_len = "fn ".len()
         + vis.len()
+        + defaultness.len()
         + constness.len()
         + asyncness.len()
         + unsafety.len()
-        + defaultness.len()
         + abi.len()
         + name.as_str().len()
         + generics_len;
@@ -860,14 +860,14 @@ fn assoc_method(
     w.reserve(header_len + "<a href=\"\" class=\"fn\">{".len() + "</a>".len());
     write!(
         w,
-        "{indent}{vis}{constness}{asyncness}{unsafety}{defaultness}{abi}fn \
+        "{indent}{vis}{defaultness}{constness}{asyncness}{unsafety}{abi}fn \
          <a{href} class=\"fn\">{name}</a>{generics}{decl}{notable_traits}{where_clause}",
         indent = indent_str,
         vis = vis,
+        defaultness = defaultness,
         constness = constness,
         asyncness = asyncness,
         unsafety = unsafety,
-        defaultness = defaultness,
         abi = abi,
         href = href,
         name = name,
@@ -1821,9 +1821,9 @@ fn render_rightside(
     );
     if let Some(l) = src_href {
         if has_stability {
-            write!(rightside, " · <a class=\"srclink\" href=\"{}\">source</a>", l)
+            write!(rightside, " · <a class=\"src\" href=\"{}\">source</a>", l)
         } else {
-            write!(rightside, "<a class=\"srclink rightside\" href=\"{}\">source</a>", l)
+            write!(rightside, "<a class=\"src rightside\" href=\"{}\">source</a>", l)
         }
     }
     if has_stability && has_src_ref {
@@ -1988,7 +1988,9 @@ pub(crate) fn get_filtered_impls_for_reference<'a>(
 ) -> (Vec<&'a Impl>, Vec<&'a Impl>, Vec<&'a Impl>) {
     let def_id = it.item_id.expect_def_id();
     // If the reference primitive is somehow not defined, exit early.
-    let Some(v) = shared.cache.impls.get(&def_id) else { return (Vec::new(), Vec::new(), Vec::new()) };
+    let Some(v) = shared.cache.impls.get(&def_id) else {
+        return (Vec::new(), Vec::new(), Vec::new());
+    };
     // Since there is no "direct implementation" on the reference primitive type, we filter out
     // every implementation which isn't a trait implementation.
     let traits = v.iter().filter(|i| i.inner_impl().trait_.is_some());

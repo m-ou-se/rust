@@ -26,6 +26,7 @@ pub use self::borrowed_locals::borrowed_locals;
 pub use self::borrowed_locals::MaybeBorrowedLocals;
 pub use self::liveness::MaybeLiveLocals;
 pub use self::liveness::MaybeTransitiveLiveLocals;
+pub use self::liveness::TransferFunction as LivenessTransferFunction;
 pub use self::storage_liveness::{MaybeRequiresStorage, MaybeStorageDead, MaybeStorageLive};
 
 /// `MaybeInitializedPlaces` tracks all places that might be
@@ -321,7 +322,9 @@ impl<'tcx> GenKillAnalysis<'tcx> for MaybeInitializedPlaces<'_, 'tcx> {
 
         // Mark all places as "maybe init" if they are mutably borrowed. See #90752.
         for_each_mut_borrow(statement, location, |place| {
-            let LookupResult::Exact(mpi) = self.move_data().rev_lookup.find(place.as_ref()) else { return };
+            let LookupResult::Exact(mpi) = self.move_data().rev_lookup.find(place.as_ref()) else {
+                return;
+            };
             on_all_children_bits(self.tcx, self.body, self.move_data(), mpi, |child| {
                 trans.gen(child);
             })
@@ -343,7 +346,9 @@ impl<'tcx> GenKillAnalysis<'tcx> for MaybeInitializedPlaces<'_, 'tcx> {
         }
 
         for_each_mut_borrow(terminator, location, |place| {
-            let LookupResult::Exact(mpi) = self.move_data().rev_lookup.find(place.as_ref()) else { return };
+            let LookupResult::Exact(mpi) = self.move_data().rev_lookup.find(place.as_ref()) else {
+                return;
+            };
             on_all_children_bits(self.tcx, self.body, self.move_data(), mpi, |child| {
                 trans.gen(child);
             })

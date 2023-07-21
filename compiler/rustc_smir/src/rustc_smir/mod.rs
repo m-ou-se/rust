@@ -8,8 +8,11 @@
 //! For now, we are developing everything inside `rustc`, thus, we keep this module private.
 
 use crate::rustc_internal::{self, opaque};
-use crate::stable_mir::ty::{FloatTy, IntTy, RigidTy, TyKind, UintTy};
+use crate::stable_mir::ty::{
+    FloatTy, GenericArgKind, GenericArgs, IntTy, Movability, RigidTy, TyKind, UintTy,
+};
 use crate::stable_mir::{self, Context};
+use rustc_hir as hir;
 use rustc_middle::mir;
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::def_id::{CrateNum, DefId, LOCAL_CRATE};
@@ -94,30 +97,56 @@ impl<'tcx> Tables<'tcx> {
                 ty::FloatTy::F32 => TyKind::RigidTy(RigidTy::Float(FloatTy::F32)),
                 ty::FloatTy::F64 => TyKind::RigidTy(RigidTy::Float(FloatTy::F64)),
             },
-            ty::Adt(_, _) => todo!(),
-            ty::Foreign(_) => todo!(),
-            ty::Str => todo!(),
-            ty::Array(_, _) => todo!(),
-            ty::Slice(_) => todo!(),
-            ty::RawPtr(_) => todo!(),
-            ty::Ref(_, _, _) => todo!(),
-            ty::FnDef(_, _) => todo!(),
+            ty::Adt(adt_def, generic_args) => TyKind::RigidTy(RigidTy::Adt(
+                rustc_internal::adt_def(adt_def.did()),
+                self.generic_args(generic_args),
+            )),
+            ty::Foreign(def_id) => {
+                TyKind::RigidTy(RigidTy::Foreign(rustc_internal::foreign_def(*def_id)))
+            }
+            ty::Str => TyKind::RigidTy(RigidTy::Str),
+            ty::Array(ty, constant) => {
+                TyKind::RigidTy(RigidTy::Array(self.intern_ty(*ty), opaque(constant)))
+            }
+            ty::Slice(ty) => TyKind::RigidTy(RigidTy::Slice(self.intern_ty(*ty))),
+            ty::RawPtr(ty::TypeAndMut { ty, mutbl }) => {
+                TyKind::RigidTy(RigidTy::RawPtr(self.intern_ty(*ty), mutbl.stable()))
+            }
+            ty::Ref(region, ty, mutbl) => {
+                TyKind::RigidTy(RigidTy::Ref(opaque(region), self.intern_ty(*ty), mutbl.stable()))
+            }
+            ty::FnDef(def_id, generic_args) => TyKind::RigidTy(RigidTy::FnDef(
+                rustc_internal::fn_def(*def_id),
+                self.generic_args(generic_args),
+            )),
             ty::FnPtr(_) => todo!(),
-            ty::Placeholder(..) => todo!(),
             ty::Dynamic(_, _, _) => todo!(),
-            ty::Closure(_, _) => todo!(),
-            ty::Generator(_, _, _) => todo!(),
-            ty::GeneratorWitness(_) => todo!(),
-            ty::GeneratorWitnessMIR(_, _) => todo!(),
-            ty::Never => todo!(),
+            ty::Closure(def_id, generic_args) => TyKind::RigidTy(RigidTy::Closure(
+                rustc_internal::closure_def(*def_id),
+                self.generic_args(generic_args),
+            )),
+            ty::Generator(def_id, generic_args, movability) => TyKind::RigidTy(RigidTy::Generator(
+                rustc_internal::generator_def(*def_id),
+                self.generic_args(generic_args),
+                match movability {
+                    hir::Movability::Static => Movability::Static,
+                    hir::Movability::Movable => Movability::Movable,
+                },
+            )),
+            ty::Never => TyKind::RigidTy(RigidTy::Never),
             ty::Tuple(fields) => TyKind::RigidTy(RigidTy::Tuple(
                 fields.iter().map(|ty| self.intern_ty(ty)).collect(),
             )),
             ty::Alias(_, _) => todo!(),
             ty::Param(_) => todo!(),
             ty::Bound(_, _) => todo!(),
-            ty::Infer(_) => todo!(),
-            ty::Error(_) => todo!(),
+            ty::Placeholder(..)
+            | ty::GeneratorWitness(_)
+            | ty::GeneratorWitnessMIR(_, _)
+            | ty::Infer(_)
+            | ty::Error(_) => {
+                unreachable!();
+            }
         }
     }
 
@@ -128,6 +157,24 @@ impl<'tcx> Tables<'tcx> {
         let id = self.types.len();
         self.types.push(ty);
         stable_mir::ty::Ty(id)
+    }
+
+    fn generic_args(
+        &mut self,
+        generic_args: &ty::GenericArgs<'tcx>,
+    ) -> stable_mir::ty::GenericArgs {
+        GenericArgs(
+            generic_args
+                .iter()
+                .map(|arg| match arg.unpack() {
+                    ty::GenericArgKind::Lifetime(region) => {
+                        GenericArgKind::Lifetime(opaque(&region))
+                    }
+                    ty::GenericArgKind::Type(ty) => GenericArgKind::Type(self.intern_ty(ty)),
+                    ty::GenericArgKind::Const(const_) => GenericArgKind::Const(opaque(&const_)),
+                })
+                .collect(),
+        )
     }
 }
 
@@ -145,13 +192,6 @@ pub(crate) trait Stable {
     type T;
     /// Converts an object to the equivalent Stable MIR representation.
     fn stable(&self) -> Self::T;
-}
-
-impl Stable for DefId {
-    type T = stable_mir::CrateItem;
-    fn stable(&self) -> Self::T {
-        rustc_internal::crate_item(*self)
-    }
 }
 
 impl<'tcx> Stable for mir::Statement<'tcx> {
@@ -188,7 +228,9 @@ impl<'tcx> Stable for mir::Rvalue<'tcx> {
             Ref(region, kind, place) => {
                 stable_mir::mir::Rvalue::Ref(opaque(region), kind.stable(), place.stable())
             }
-            ThreadLocalRef(def_id) => stable_mir::mir::Rvalue::ThreadLocalRef(def_id.stable()),
+            ThreadLocalRef(def_id) => {
+                stable_mir::mir::Rvalue::ThreadLocalRef(rustc_internal::crate_item(*def_id))
+            }
             AddressOf(mutability, place) => {
                 stable_mir::mir::Rvalue::AddressOf(mutability.stable(), place.stable())
             }
