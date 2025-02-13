@@ -2040,7 +2040,11 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn width(&self) -> Option<usize> {
-        if self.options.flags & rt::WIDTH_FLAG == 0 { None } else { Some(self.options.width as usize) }
+        if self.options.flags & rt::WIDTH_FLAG == 0 {
+            None
+        } else {
+            Some(self.options.width as usize)
+        }
     }
 
     /// Returns the optionally specified precision for numeric types.

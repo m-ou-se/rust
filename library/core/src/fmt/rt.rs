@@ -36,12 +36,7 @@ impl Placeholder {
 
     #[cfg(not(bootstrap))]
     #[inline]
-    pub const fn new(
-        position: usize,
-        flags: u32,
-        precision: Count,
-        width: Count,
-    ) -> Self {
+    pub const fn new(position: usize, flags: u32, precision: Count, width: Count) -> Self {
         Self { position, flags, precision, width }
     }
 }
