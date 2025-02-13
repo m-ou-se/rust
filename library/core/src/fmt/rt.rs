@@ -11,7 +11,9 @@ use crate::ptr::NonNull;
 #[derive(Copy, Clone)]
 pub struct Placeholder {
     pub position: usize,
+    #[cfg(bootstrap)]
     pub fill: char,
+    #[cfg(bootstrap)]
     pub align: Alignment,
     pub flags: u32,
     pub precision: Count,
@@ -19,6 +21,7 @@ pub struct Placeholder {
 }
 
 impl Placeholder {
+    #[cfg(bootstrap)]
     #[inline]
     pub const fn new(
         position: usize,
@@ -30,8 +33,20 @@ impl Placeholder {
     ) -> Self {
         Self { position, fill, align, flags, precision, width }
     }
+
+    #[cfg(not(bootstrap))]
+    #[inline]
+    pub const fn new(
+        position: usize,
+        flags: u32,
+        precision: Count,
+        width: Count,
+    ) -> Self {
+        Self { position, flags, precision, width }
+    }
 }
 
+#[cfg(bootstrap)]
 #[lang = "format_alignment"]
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Alignment {
@@ -58,16 +73,21 @@ pub enum Count {
     Implied,
 }
 
-// This needs to match the order of flags in compiler/rustc_ast_lowering/src/format.rs.
-#[derive(Copy, Clone)]
-pub(super) enum Flag {
-    SignPlus,
-    SignMinus,
-    Alternate,
-    SignAwareZeroPad,
-    DebugLowerHex,
-    DebugUpperHex,
-}
+// This needs to match with compiler/rustc_ast_lowering/src/format.rs.
+pub const SIGN_PLUS_FLAG: u32 = 1 << 0;
+pub const SIGN_MINUS_FLAG: u32 = 1 << 1;
+pub const ALTERNATE_FLAG: u32 = 1 << 2;
+pub const SIGN_AWARE_ZERO_PAD_FLAG: u32 = 1 << 3;
+pub const DEBUG_LOWER_HEX_FLAG: u32 = 1 << 4;
+pub const DEBUG_UPPER_HEX_FLAG: u32 = 1 << 5;
+pub const ALIGN_BITS: u32 = 0b11 << 6;
+pub const ALIGN_LEFT: u32 = 0 << 6;
+pub const ALIGN_RIGHT: u32 = 1 << 6;
+pub const ALIGN_CENTER: u32 = 2 << 6;
+pub const ALIGN_UNKNOWN: u32 = 3 << 6;
+pub const WIDTH_FLAG: u32 = 1 << 8;
+pub const PRECISION_FLAG: u32 = 1 << 9;
+pub const FILL_SHIFT: usize = 11;
 
 #[derive(Copy, Clone)]
 enum ArgumentType<'a> {

@@ -33,19 +33,6 @@ pub enum Alignment {
     Center,
 }
 
-#[doc(hidden)]
-#[unstable(feature = "fmt_internals", reason = "internal to standard library", issue = "none")]
-impl From<rt::Alignment> for Option<Alignment> {
-    fn from(value: rt::Alignment) -> Self {
-        match value {
-            rt::Alignment::Left => Some(Alignment::Left),
-            rt::Alignment::Right => Some(Alignment::Right),
-            rt::Alignment::Center => Some(Alignment::Center),
-            rt::Alignment::Unknown => None,
-        }
-    }
-}
-
 #[stable(feature = "debug_builders", since = "1.2.0")]
 pub use self::builders::{DebugList, DebugMap, DebugSet, DebugStruct, DebugTuple};
 #[unstable(feature = "debug_closure_helpers", issue = "117729")]
@@ -292,12 +279,12 @@ pub enum DebugAsHex {
 #[unstable(feature = "formatting_options", issue = "118117")]
 pub struct FormattingOptions {
     /// Bits:
-    ///  - 0: `+` flag [rt::Flag::SignPlus]
-    ///  - 1: `-` flag [rt::Flag::SignMinus]
-    ///  - 2: `#` flag [rt::Flag::Alternate]
-    ///  - 3: `0` flag [rt::Flag::SignAwareZeroPad]
-    ///  - 4: `x?` flag [rt::Flag::DebugLowerHex]
-    ///  - 5: `X?` flag [rt::Flag::DebugUpperHex]
+    ///  - 0: `+` flag [rt::SIGN_PLUS_FLAG]
+    ///  - 1: `-` flag [rt::SIGN_MINUS_FLAG]
+    ///  - 2: `#` flag [rt::ALTERNATE_FLAG]
+    ///  - 3: `0` flag [rt::SIGN_AWARE_ZERO_PAD_FLAG]
+    ///  - 4: `x?` flag [rt::DEBUG_LOWER_HEX_FLAG]
+    ///  - 5: `X?` flag [rt::DEBUG_UPPER_HEX_FLAG]
     ///  - 6-7: Alignment (0: Left, 1: Right, 2: Center, 3: Unknown)
     ///  - 8: Width flag (if set, the width field below is used)
     ///  - 9: Precision flag (if set, the precision field below is used)
@@ -309,17 +296,6 @@ pub struct FormattingOptions {
     /// Precision if precision flag above is set. Otherwise, always 0.
     precision: u16,
 }
-
-const SIGN_PLUS_FLAG: u32 = 1 << rt::Flag::SignPlus as u32;
-const SIGN_MINUS_FLAG: u32 = 1 << rt::Flag::SignMinus as u32;
-const ALTERNATE_FLAG: u32 = 1 << rt::Flag::Alternate as u32;
-const SIGN_AWARE_ZERO_PAD_FLAG: u32 = 1 << rt::Flag::SignAwareZeroPad as u32;
-const DEBUG_LOWER_FLAG: u32 = 1 << rt::Flag::DebugLowerHex as u32;
-const DEBUG_UPPER_FLAG: u32 = 1 << rt::Flag::DebugUpperHex as u32;
-const ALIGN_SHIFT: usize = 6;
-const WIDTH_FLAG: u32 = 1 << 8;
-const PRECISION_FLAG: u32 = 1 << 9;
-const FILL_SHIFT: usize = 11;
 
 impl FormattingOptions {
     /// Construct a new `FormatterBuilder` with the supplied `Write` trait
@@ -334,7 +310,7 @@ impl FormattingOptions {
     /// - no [`DebugAsHex`] output mode.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn new() -> Self {
-        Self { flags: (' ' as u32) << FILL_SHIFT | 3 << ALIGN_SHIFT, width: 0, precision: 0 }
+        Self { flags: (' ' as u32) << rt::FILL_SHIFT | rt::ALIGN_UNKNOWN, width: 0, precision: 0 }
     }
 
     /// Sets or removes the sign (the `+` or the `-` flag).
@@ -349,10 +325,10 @@ impl FormattingOptions {
     pub fn sign(&mut self, sign: Option<Sign>) -> &mut Self {
         let sign = match sign {
             None => 0,
-            Some(Sign::Plus) => SIGN_PLUS_FLAG,
-            Some(Sign::Minus) => SIGN_MINUS_FLAG,
+            Some(Sign::Plus) => rt::SIGN_PLUS_FLAG,
+            Some(Sign::Minus) => rt::SIGN_MINUS_FLAG,
         };
-        self.flags = self.flags & !(SIGN_PLUS_FLAG | SIGN_MINUS_FLAG) | sign;
+        self.flags = self.flags & !(rt::SIGN_PLUS_FLAG | rt::SIGN_MINUS_FLAG) | sign;
         self
     }
     /// Sets or unsets the `0` flag.
@@ -361,9 +337,9 @@ impl FormattingOptions {
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn sign_aware_zero_pad(&mut self, sign_aware_zero_pad: bool) -> &mut Self {
         if sign_aware_zero_pad {
-            self.flags |= SIGN_AWARE_ZERO_PAD_FLAG;
+            self.flags |= rt::SIGN_AWARE_ZERO_PAD_FLAG;
         } else {
-            self.flags &= !SIGN_AWARE_ZERO_PAD_FLAG;
+            self.flags &= !rt::SIGN_AWARE_ZERO_PAD_FLAG;
         }
         self
     }
@@ -378,9 +354,9 @@ impl FormattingOptions {
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn alternate(&mut self, alternate: bool) -> &mut Self {
         if alternate {
-            self.flags |= ALTERNATE_FLAG;
+            self.flags |= rt::ALTERNATE_FLAG;
         } else {
-            self.flags &= !ALTERNATE_FLAG;
+            self.flags &= !rt::ALTERNATE_FLAG;
         }
         self
     }
@@ -392,7 +368,7 @@ impl FormattingOptions {
     /// printed around it.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn fill(&mut self, fill: char) -> &mut Self {
-        self.flags = self.flags & !(u32::MAX << FILL_SHIFT) | (fill as u32) << FILL_SHIFT;
+        self.flags = self.flags & !(u32::MAX << rt::FILL_SHIFT) | (fill as u32) << rt::FILL_SHIFT;
         self
     }
     /// Sets or removes the alignment.
@@ -402,12 +378,12 @@ impl FormattingOptions {
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn align(&mut self, align: Option<Alignment>) -> &mut Self {
         let align: u32 = match align {
-            Some(Alignment::Left) => 0,
-            Some(Alignment::Right) => 1,
-            Some(Alignment::Center) => 2,
-            None => 3,
+            Some(Alignment::Left) => rt::ALIGN_LEFT,
+            Some(Alignment::Right) => rt::ALIGN_RIGHT,
+            Some(Alignment::Center) => rt::ALIGN_CENTER,
+            None => rt::ALIGN_UNKNOWN,
         };
-        self.flags = self.flags & !(0b11 << ALIGN_SHIFT) | align << ALIGN_SHIFT;
+        self.flags = self.flags & !rt::ALIGN_BITS | align;
         self
     }
     /// Sets or removes the width.
@@ -419,10 +395,10 @@ impl FormattingOptions {
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn width(&mut self, width: Option<u16>) -> &mut Self {
         if let Some(width) = width {
-            self.flags |= WIDTH_FLAG;
+            self.flags |= rt::WIDTH_FLAG;
             self.width = width;
         } else {
-            self.flags &= !WIDTH_FLAG;
+            self.flags &= !rt::WIDTH_FLAG;
             self.width = 0;
         }
         self
@@ -439,10 +415,10 @@ impl FormattingOptions {
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub fn precision(&mut self, precision: Option<u16>) -> &mut Self {
         if let Some(precision) = precision {
-            self.flags |= PRECISION_FLAG;
+            self.flags |= rt::PRECISION_FLAG;
             self.precision = precision;
         } else {
-            self.flags &= !PRECISION_FLAG;
+            self.flags &= !rt::PRECISION_FLAG;
             self.precision = 0;
         }
         self
@@ -453,19 +429,20 @@ impl FormattingOptions {
     pub fn debug_as_hex(&mut self, debug_as_hex: Option<DebugAsHex>) -> &mut Self {
         let debug_as_hex = match debug_as_hex {
             None => 0,
-            Some(DebugAsHex::Lower) => DEBUG_LOWER_FLAG,
-            Some(DebugAsHex::Upper) => DEBUG_UPPER_FLAG,
+            Some(DebugAsHex::Lower) => rt::DEBUG_LOWER_HEX_FLAG,
+            Some(DebugAsHex::Upper) => rt::DEBUG_UPPER_HEX_FLAG,
         };
-        self.flags = self.flags & !(DEBUG_LOWER_FLAG | DEBUG_UPPER_FLAG) | debug_as_hex;
+        self.flags =
+            self.flags & !(rt::DEBUG_LOWER_HEX_FLAG | rt::DEBUG_UPPER_HEX_FLAG) | debug_as_hex;
         self
     }
 
     /// Returns the current sign (the `+` or the `-` flag).
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_sign(&self) -> Option<Sign> {
-        if self.flags & SIGN_PLUS_FLAG != 0 {
+        if self.flags & rt::SIGN_PLUS_FLAG != 0 {
             Some(Sign::Plus)
-        } else if self.flags & SIGN_MINUS_FLAG != 0 {
+        } else if self.flags & rt::SIGN_MINUS_FLAG != 0 {
             Some(Sign::Minus)
         } else {
             None
@@ -474,46 +451,45 @@ impl FormattingOptions {
     /// Returns the current `0` flag.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_sign_aware_zero_pad(&self) -> bool {
-        self.flags & SIGN_AWARE_ZERO_PAD_FLAG != 0
+        self.flags & rt::SIGN_AWARE_ZERO_PAD_FLAG != 0
     }
     /// Returns the current `#` flag.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_alternate(&self) -> bool {
-        self.flags & ALTERNATE_FLAG != 0
+        self.flags & rt::ALTERNATE_FLAG != 0
     }
     /// Returns the current fill character.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_fill(&self) -> char {
         // SAFETY: We only ever put a valid `char` in the upper 21 bits of the flags field.
-        unsafe { char::from_u32_unchecked(self.flags >> FILL_SHIFT) }
+        unsafe { char::from_u32_unchecked(self.flags >> rt::FILL_SHIFT) }
     }
     /// Returns the current alignment.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_align(&self) -> Option<Alignment> {
-        let align = (self.flags >> ALIGN_SHIFT) & 0b11;
-        match align {
-            0 => Some(Alignment::Left),
-            1 => Some(Alignment::Right),
-            2 => Some(Alignment::Center),
+        match self.flags & rt::ALIGN_BITS {
+            rt::ALIGN_LEFT => Some(Alignment::Left),
+            rt::ALIGN_RIGHT => Some(Alignment::Right),
+            rt::ALIGN_CENTER => Some(Alignment::Center),
             _ => None,
         }
     }
     /// Returns the current width.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_width(&self) -> Option<u16> {
-        if self.flags & WIDTH_FLAG != 0 { Some(self.width) } else { None }
+        if self.flags & rt::WIDTH_FLAG != 0 { Some(self.width) } else { None }
     }
     /// Returns the current precision.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_precision(&self) -> Option<u16> {
-        if self.flags & PRECISION_FLAG != 0 { Some(self.precision) } else { None }
+        if self.flags & rt::PRECISION_FLAG != 0 { Some(self.precision) } else { None }
     }
     /// Returns the current precision.
     #[unstable(feature = "formatting_options", issue = "118117")]
     pub const fn get_debug_as_hex(&self) -> Option<DebugAsHex> {
-        if self.flags & DEBUG_LOWER_FLAG != 0 {
+        if self.flags & rt::DEBUG_LOWER_HEX_FLAG != 0 {
             Some(DebugAsHex::Lower)
-        } else if self.flags & DEBUG_UPPER_FLAG != 0 {
+        } else if self.flags & rt::DEBUG_UPPER_HEX_FLAG != 0 {
             Some(DebugAsHex::Upper)
         } else {
             None
@@ -1504,11 +1480,23 @@ unsafe fn run(fmt: &mut Formatter<'_>, arg: &rt::Placeholder, args: &[rt::Argume
         // which guarantees the indexes are always within bounds.
         unsafe { (getcount(args, &arg.width), getcount(args, &arg.precision)) };
 
-    fmt.options = *FormattingOptions { flags: arg.flags, width: 0, precision: 0 }
-        .align(arg.align.into())
-        .fill(arg.fill)
-        .width(width)
-        .precision(precision);
+    #[cfg(bootstrap)]
+    {
+        fmt.options = *FormattingOptions { flags: arg.flags, width: 0, precision: 0 }
+            .align(match arg.align {
+                rt::Alignment::Left => Some(Alignment::Left),
+                rt::Alignment::Right => Some(Alignment::Right),
+                rt::Alignment::Center => Some(Alignment::Center),
+                rt::Alignment::Unknown => None,
+            })
+            .fill(arg.fill)
+            .width(width)
+            .precision(precision);
+    }
+    #[cfg(not(bootstrap))]
+    {
+        fmt.options = FormattingOptions { flags: arg.flags, width, precision };
+    }
 
     // Extract the correct argument
     debug_assert!(arg.position < args.len());
@@ -1521,18 +1509,30 @@ unsafe fn run(fmt: &mut Formatter<'_>, arg: &rt::Placeholder, args: &[rt::Argume
     unsafe { value.fmt(fmt) }
 }
 
+#[cfg(bootstrap)]
 unsafe fn getcount(args: &[rt::Argument<'_>], cnt: &rt::Count) -> Option<u16> {
     match *cnt {
-        #[cfg(bootstrap)]
         rt::Count::Is(n) => Some(n as u16),
-        #[cfg(not(bootstrap))]
-        rt::Count::Is(n) => Some(n),
         rt::Count::Implied => None,
         rt::Count::Param(i) => {
             debug_assert!(i < args.len());
             // SAFETY: cnt and args come from the same Arguments,
             // which guarantees this index is always within bounds.
             unsafe { args.get_unchecked(i).as_u16() }
+        }
+    }
+}
+
+#[cfg(not(bootstrap))]
+unsafe fn getcount(args: &[rt::Argument<'_>], cnt: &rt::Count) -> u16 {
+    match *cnt {
+        rt::Count::Is(n) => n,
+        rt::Count::Implied => 0,
+        rt::Count::Param(i) => {
+            debug_assert!(i < args.len());
+            // SAFETY: cnt and args come from the same Arguments,
+            // which guarantees this index is always within bounds.
+            unsafe { args.get_unchecked(i).as_u16().unwrap_unchecked() }
         }
     }
 }
@@ -1707,7 +1707,7 @@ impl<'a> Formatter<'a> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn pad(&mut self, s: &str) -> Result {
         // Make sure there's a fast path up front
-        if self.options.flags & (WIDTH_FLAG | PRECISION_FLAG) == 0 {
+        if self.options.flags & (rt::WIDTH_FLAG | rt::PRECISION_FLAG) == 0 {
             return self.buf.write_str(s);
         }
         // The `precision` field can be interpreted as a `max-width` for the
@@ -2040,7 +2040,7 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn width(&self) -> Option<usize> {
-        if self.options.flags & WIDTH_FLAG == 0 { None } else { Some(self.options.width as usize) }
+        if self.options.flags & rt::WIDTH_FLAG == 0 { None } else { Some(self.options.width as usize) }
     }
 
     /// Returns the optionally specified precision for numeric types.
@@ -2071,7 +2071,7 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn precision(&self) -> Option<usize> {
-        if self.options.flags & PRECISION_FLAG == 0 {
+        if self.options.flags & rt::PRECISION_FLAG == 0 {
             None
         } else {
             Some(self.options.precision as usize)
@@ -2107,7 +2107,7 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn sign_plus(&self) -> bool {
-        self.options.flags & SIGN_PLUS_FLAG != 0
+        self.options.flags & rt::SIGN_PLUS_FLAG != 0
     }
 
     /// Determines if the `-` flag was specified.
@@ -2136,7 +2136,7 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn sign_minus(&self) -> bool {
-        self.options.flags & SIGN_MINUS_FLAG != 0
+        self.options.flags & rt::SIGN_MINUS_FLAG != 0
     }
 
     /// Determines if the `#` flag was specified.
@@ -2164,7 +2164,7 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn alternate(&self) -> bool {
-        self.options.flags & ALTERNATE_FLAG != 0
+        self.options.flags & rt::ALTERNATE_FLAG != 0
     }
 
     /// Determines if the `0` flag was specified.
@@ -2190,16 +2190,16 @@ impl<'a> Formatter<'a> {
     #[must_use]
     #[stable(feature = "fmt_flags", since = "1.5.0")]
     pub fn sign_aware_zero_pad(&self) -> bool {
-        self.options.flags & SIGN_AWARE_ZERO_PAD_FLAG != 0
+        self.options.flags & rt::SIGN_AWARE_ZERO_PAD_FLAG != 0
     }
 
     // FIXME: Decide what public API we want for these two flags.
     // https://github.com/rust-lang/rust/issues/48584
     fn debug_lower_hex(&self) -> bool {
-        self.options.flags & DEBUG_LOWER_FLAG != 0
+        self.options.flags & rt::DEBUG_LOWER_HEX_FLAG != 0
     }
     fn debug_upper_hex(&self) -> bool {
-        self.options.flags & DEBUG_UPPER_FLAG != 0
+        self.options.flags & rt::DEBUG_UPPER_HEX_FLAG != 0
     }
 
     /// Creates a [`DebugStruct`] builder designed to assist with creation of
@@ -2779,7 +2779,7 @@ impl Debug for char {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Display for char {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        if f.options.flags & (WIDTH_FLAG | PRECISION_FLAG) == 0 {
+        if f.options.flags & (rt::WIDTH_FLAG | rt::PRECISION_FLAG) == 0 {
             f.write_char(*self)
         } else {
             f.pad(self.encode_utf8(&mut [0; 4]))
