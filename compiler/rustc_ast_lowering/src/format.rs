@@ -9,6 +9,7 @@ use rustc_session::config::FmtDebug;
 use rustc_span::{Ident, Span, Symbol, kw, sym};
 
 use super::LoweringContext;
+use super::errors::TooManyFormatArguments;
 
 impl<'hir> LoweringContext<'_, 'hir> {
     pub(crate) fn lower_format_args(&mut self, sp: Span, fmt: &FormatArgs) -> hir::ExprKind<'hir> {
@@ -273,12 +274,6 @@ fn make_argument<'hir>(
 /// ```text
 ///     <core::fmt::rt::Count>::Param(…)
 /// ```
-///
-/// or
-///
-/// ```text
-///     <core::fmt::rt::Count>::Implied
-/// ```
 fn make_count<'hir>(
     ctx: &mut LoweringContext<'_, 'hir>,
     sp: Span,
@@ -303,7 +298,7 @@ fn make_count<'hir>(
                     hir::LangItem::FormatCount,
                     sym::Param,
                 ));
-                let value = ctx.arena.alloc_from_iter([ctx.expr_usize(sp, i)]);
+                let value = ctx.arena.alloc_from_iter([ctx.expr_u16(sp, i as u16)]);
                 ctx.expr_call_mut(sp, count_param, value)
             } else {
                 ctx.expr(
@@ -314,7 +309,7 @@ fn make_count<'hir>(
                 )
             }
         }
-        None => ctx.expr_lang_item_type_relative(sp, hir::LangItem::FormatCount, sym::Implied),
+        None => ctx.expr_lang_item_type_relative(sp, hir::LangItem::FormatCount, sym::IMPLIED),
     }
 }
 
@@ -324,7 +319,7 @@ fn make_count<'hir>(
 ///
 /// ```text
 ///     <core::fmt::rt::Placeholder::new(
-///         …usize, // position
+///         …u16, // position
 ///         '…', // fill
 ///         <core::fmt::rt::Alignment>::…, // alignment
 ///         …u32, // flags
@@ -344,7 +339,7 @@ fn make_format_spec<'hir>(
                 (arg_index, ArgumentType::Format(placeholder.format_trait)),
                 placeholder.span,
             );
-            ctx.expr_usize(sp, i)
+            ctx.expr_u16(sp, i as u16)
         }
         Err(_) => ctx.expr(
             sp,
@@ -475,6 +470,11 @@ fn expand_format_args<'hir>(
         ));
         let new_args = ctx.arena.alloc_from_iter([lit_pieces]);
         return hir::ExprKind::Call(new, new_args);
+    }
+
+    // Ensure all argument indexes actually fit in a u16, as we casted them to u16 before.
+    if argmap.len() > u16::MAX as usize {
+        ctx.dcx().emit_err(TooManyFormatArguments { span: fmt.span });
     }
 
     // If the args array contains exactly all the original arguments once,

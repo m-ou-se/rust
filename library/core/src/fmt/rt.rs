@@ -10,7 +10,10 @@ use crate::ptr::NonNull;
 #[lang = "format_placeholder"]
 #[derive(Copy, Clone)]
 pub struct Placeholder {
+    #[cfg(bootstrap)]
     pub position: usize,
+    #[cfg(not(bootstrap))]
+    pub position: u16,
     #[cfg(bootstrap)]
     pub fill: char,
     #[cfg(bootstrap)]
@@ -36,7 +39,7 @@ impl Placeholder {
 
     #[cfg(not(bootstrap))]
     #[inline]
-    pub const fn new(position: usize, flags: u32, precision: Count, width: Count) -> Self {
+    pub const fn new(position: u16, flags: u32, precision: Count, width: Count) -> Self {
         Self { position, flags, precision, width }
     }
 }
@@ -63,9 +66,18 @@ pub enum Count {
     #[cfg(not(bootstrap))]
     Is(u16),
     /// Specified using `$` and `*` syntaxes, stores the index into `args`
+    #[cfg(bootstrap)]
     Param(usize),
+    /// Specified using `$` and `*` syntaxes, stores the index into `args`
+    #[cfg(not(bootstrap))]
+    Param(u16),
     /// Not specified
+    #[cfg(bootstrap)]
     Implied,
+}
+
+impl Count {
+    pub const IMPLIED: Count = Count::Is(0);
 }
 
 // This needs to match with compiler/rustc_ast_lowering/src/format.rs.

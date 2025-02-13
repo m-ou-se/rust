@@ -1498,11 +1498,12 @@ unsafe fn run(fmt: &mut Formatter<'_>, arg: &rt::Placeholder, args: &[rt::Argume
         fmt.options = FormattingOptions { flags: arg.flags, width, precision };
     }
 
+    let position = arg.position as usize;
     // Extract the correct argument
-    debug_assert!(arg.position < args.len());
+    debug_assert!(position < args.len());
     // SAFETY: arg and args come from the same Arguments,
     // which guarantees its index is always within bounds.
-    let value = unsafe { args.get_unchecked(arg.position) };
+    let value = unsafe { args.get_unchecked(position) };
 
     // Then actually do some printing
     // SAFETY: this is a placeholder argument.
@@ -1527,8 +1528,8 @@ unsafe fn getcount(args: &[rt::Argument<'_>], cnt: &rt::Count) -> Option<u16> {
 unsafe fn getcount(args: &[rt::Argument<'_>], cnt: &rt::Count) -> u16 {
     match *cnt {
         rt::Count::Is(n) => n,
-        rt::Count::Implied => 0,
         rt::Count::Param(i) => {
+            let i = i as usize;
             debug_assert!(i < args.len());
             // SAFETY: cnt and args come from the same Arguments,
             // which guarantees this index is always within bounds.
