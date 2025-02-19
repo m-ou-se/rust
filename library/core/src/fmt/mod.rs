@@ -7,6 +7,8 @@ use crate::char::EscapeDebugExtArgs;
 use crate::marker::PhantomData;
 use crate::num::fmt as numfmt;
 use crate::ops::Deref;
+#[cfg(not(bootstrap))]
+use crate::ptr::NonNull;
 use crate::{iter, mem, result, str};
 
 mod builders;
@@ -646,7 +648,7 @@ impl<'a> Arguments<'a> {
 #[derive(Copy, Clone)]
 pub struct Arguments<'a> {
     template: rt::Template<'a>,
-    args: *const rt::Argument<'a>,
+    args: NonNull<rt::Argument<'a>>,
 }
 
 /// Used by the format_args!() macro to create a fmt::Arguments object.
@@ -656,7 +658,7 @@ pub struct Arguments<'a> {
 impl<'a> Arguments<'a> {
     #[inline]
     pub const fn new_const(template: rt::Template<'a>) -> Arguments<'a> {
-        Arguments { template, args: crate::ptr::dangling() }
+        Arguments { template, args: NonNull::dangling() }
     }
 
     #[inline]
@@ -664,7 +666,7 @@ impl<'a> Arguments<'a> {
         template: rt::Template<'a>,
         args: &'a [rt::Argument<'a>; N],
     ) -> Arguments<'a> {
-        Arguments { template, args: args as *const rt::Argument<'a> }
+        Arguments { template, args: NonNull::from_ref(args).cast() }
     }
 
     /// Estimates the length of the formatted text.
@@ -1644,7 +1646,7 @@ pub fn write(output: &mut dyn Write, fmt: Arguments<'_>) -> Result {
                 // an implicit argument with default options.
                 let options = FormattingOptions::new();
                 // SAFETY: We can assume the template only refers to arguments that exist.
-                let arg = unsafe { *args.add(implicit_arg_index) };
+                let arg = unsafe { *args.add(implicit_arg_index).as_ref() };
                 implicit_arg_index += 1;
                 // SAFETY: We can assume the placeholders match the arguments.
                 unsafe { arg.fmt(&mut Formatter::new(output, options)) }?;
@@ -1666,16 +1668,20 @@ pub fn write(output: &mut dyn Write, fmt: Arguments<'_>) -> Result {
             if low & 1 << 30 != 0 {
                 // Dynamic width from a usize argument.
                 // SAFETY: We can assume the template only refers to arguments that exist.
-                width = unsafe { (*args.add(width as usize)).as_u16().unwrap_unchecked() };
+                unsafe {
+                    width = args.add(width as usize).as_ref().as_u16().unwrap_unchecked();
+                }
             }
             if low & 1 << 31 != 0 {
                 // Dynamic precision from a usize argument.
                 // SAFETY: We can assume the template only refers to arguments that exist.
-                precision = unsafe { (*args.add(precision as usize)).as_u16().unwrap_unchecked() };
+                unsafe {
+                    precision = args.add(precision as usize).as_ref().as_u16().unwrap_unchecked();
+                }
             }
             let options = FormattingOptions { flags: high, width, precision };
             // SAFETY: We can assume the template only refers to arguments that exist.
-            let arg = unsafe { *args.add(arg_index) };
+            let arg = unsafe { *args.add(arg_index).as_ref() };
             // SAFETY: We can assume the placeholders match the arguments.
             unsafe { arg.fmt(&mut Formatter::new(output, options)) }?;
             last_piece_was_str = false;

@@ -12,7 +12,7 @@ use crate::ptr::NonNull;
 #[lang = "format_template"]
 #[derive(Copy, Clone)]
 pub struct Template<'a> {
-    pub(super) pieces: *const rt::Piece,
+    pub(super) pieces: NonNull<rt::Piece>,
     lifetime: PhantomData<&'a rt::Piece>,
 }
 
@@ -25,14 +25,14 @@ unsafe impl Sync for Template<'_> {}
 impl<'a> Template<'a> {
     #[inline]
     pub const unsafe fn new<const N: usize>(pieces: &'a [rt::Piece; N]) -> Self {
-        Self { pieces: pieces as *const rt::Piece, lifetime: PhantomData }
+        Self { pieces: NonNull::from_ref(pieces).cast(), lifetime: PhantomData }
     }
 
     #[inline]
     pub const unsafe fn next(&mut self) -> Piece {
         // SAFETY: Guaranteed by caller.
         unsafe {
-            let piece = *self.pieces;
+            let piece = *self.pieces.as_ref();
             self.pieces = self.pieces.add(1);
             piece
         }
