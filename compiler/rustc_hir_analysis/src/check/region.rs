@@ -135,10 +135,10 @@ fn resolve_block<'tcx>(
                     // previous subscope in the block as a parent, except for
                     // the first such subscope, which has the block itself as a
                     // parent.
-                    visitor.enter_scope(Scope {
-                        local_id: blk.hir_id.local_id,
-                        data: ScopeData::Remainder(FirstStatementIndex::new(i)),
-                    });
+                    //visitor.enter_scope(Scope {
+                    //    local_id: blk.hir_id.local_id,
+                    //    data: ScopeData::Remainder(FirstStatementIndex::new(i)),
+                    //});
                     visitor.cx.var_parent = visitor.cx.parent;
                     visitor.visit_stmt(statement)
                 }
