@@ -3293,25 +3293,37 @@ impl<'infcx, 'tcx> MirBorrowckCtxt<'_, 'infcx, 'tcx> {
         };
 
         let (place_desc, note) = if let Some(place_desc) = opt_place_desc {
-            let local_kind = if let Some(local) = borrow.borrowed_place.as_local() {
-                match self.body.local_kind(local) {
-                    LocalKind::Temp if self.body.local_decls[local].is_user_variable() => {
-                        "local variable "
-                    }
-                    LocalKind::Arg
-                        if !self.upvars.is_empty() && local == ty::CAPTURE_STRUCT_LOCAL =>
-                    {
-                        "variable captured by `move` "
-                    }
-                    LocalKind::Arg => "function parameter ",
-                    LocalKind::ReturnPointer | LocalKind::Temp => {
-                        bug!("temporary or return pointer with a name")
-                    }
+            if let Some(local) = borrow.borrowed_place.as_local() {
+                if self.body.local_decls[local]
+                    .source_info
+                    .span
+                    .in_external_macro(self.infcx.tcx.sess.source_map())
+                {
+                    // Don't name variables in external macros.
+                    ("temporary value".to_string(), "temporary value created here".to_string())
+                } else {
+                    let local_kind = match self.body.local_kind(local) {
+                        LocalKind::Temp if self.body.local_decls[local].is_user_variable() => {
+                            "local variable "
+                        }
+                        LocalKind::Arg
+                            if !self.upvars.is_empty() && local == ty::CAPTURE_STRUCT_LOCAL =>
+                        {
+                            "variable captured by `move` "
+                        }
+                        LocalKind::Arg => "function parameter ",
+                        LocalKind::ReturnPointer | LocalKind::Temp => {
+                            bug!("temporary or return pointer with a name")
+                        }
+                    };
+                    (
+                        format!("{local_kind}`{place_desc}`"),
+                        format!("`{place_desc}` is borrowed here"),
+                    )
                 }
             } else {
-                "local data "
-            };
-            (format!("{local_kind}`{place_desc}`"), format!("`{place_desc}` is borrowed here"))
+                (format!("local data `{place_desc}`"), format!("`{place_desc}` is borrowed here"))
+            }
         } else {
             let local = borrow.borrowed_place.local;
             match self.body.local_kind(local) {
